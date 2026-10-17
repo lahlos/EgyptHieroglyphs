@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Египетские иероглифы — твоё имя</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="container">
+
+    <!-- ===== ГЛАВНЫЙ БЛОК ===== -->
+    <section class="card">
+        <h1>✍️ Напиши своё имя</h1>
+        <p class="subtitle">Введи имя русскими буквами — программа подберёт учебные соответствия египетским знакам</p>
+
+        <input id="nameInput" type="text" placeholder="Например: Дима" maxlength="20" autofocus>
+        <br>
+        <button id="convertBtn">Показать иероглифы</button>
+
+        <div class="hieroglyphs" id="result"></div>
+    </section>
+
+    <!-- ===== МИНИ-СЛОВАРЬ ===== -->
+    <section class="card">
+        <h2>📖 Мини-словарь</h2>
+        <p class="subtitle">Какая русская буква какому иероглифу соответствует</p>
+        <div class="dictionary" id="dictionary"></div>
+    </section>
+
+    <!-- ===== ВИКТОРИНА ===== -->
+    <section class="card">
+        <h2>🎯 Мини-викторина</h2>
+        <p class="subtitle">Проверь, что ты знаешь об иероглифах</p>
+        <div id="quizBox"></div>
+    </section>
+
+    <!-- ===== ИСТОРИЯ ===== -->
+    <section class="card">
+        <h2>📜 Коротко об иероглифах</h2>
+        <div class="history">
+            <p><strong>Что такое иероглифы?</strong> Это знаки древнеегипетского письма, которые появились около 3000 года до н. э. Каждый знак — это рисунок, передающий целое слово, отдельный звук или понятие. Всего египтяне использовали более 700 иероглифов.</p>
+
+            <p><strong>Как писали?</strong> Слева направо, справа налево или сверху вниз — направление указывали сами знаки: например, птицы и люди «смотрят» в ту сторону, откуда надо читать. Материалом служил папирус — его делали из стеблей тростника, растущего по берегам Нила.</p>
+
+            <p><strong>Кто расшифровал?</strong> Долгое время иероглифы считались загадкой. В 1799 году французские солдаты нашли Розеттский камень — плиту с одним и тем же текстом на трёх языках. В 1822 году французский учёный <strong>Жан-Франсуа Шампольон</strong> смог прочитать надпись и разгадать тайну египетского письма.</p>
+
+            <p><strong>Зачем это сейчас?</strong> Иероглифы — ключ к пониманию одной из величайших цивилизаций древности. Через них мы знаем о фараонах, богах, медицине, математике и повседневной жизни Древнего Египта.</p>
+
+            <p class="note">⚠️ На нашем сайте соответствия букв иероглифам — учебная стилизация для игры. В настоящем древнеегипетском письме согласные передавались знаками, а гласные чаще всего не записывались.</p>
+        </div>
+    </section>
+
+</div>
+
+<script>
+// ============ ПЕРЕВОД ИМЕНИ ============
+async function convert() {
+    const name = document.getElementById('nameInput').value;
+    const box = document.getElementById('result');
+    box.innerHTML = '';
+
+    if (!name.trim()) {
+        box.innerHTML = '<p class="hint">Введи имя 🙂</p>';
+        return;
+    }
+
+    const response = await fetch('/convert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name })
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+        box.innerHTML = `<p class="hint">${data.error}</p>`;
+        return;
+    }
+
+    data.result.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'hier';
+        div.innerHTML = `
+            <span class="glyph">${item.glyph}</span>
+            <span class="letter">${item.letter}</span>
+            <span class="name">${item.name}</span>
+        `;
+        box.appendChild(div);
+    });
+}
+
+document.getElementById('convertBtn').addEventListener('click', convert);
+document.getElementById('nameInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') convert();
+});
+
+
+// ============ СЛОВАРЬ ============
+async function loadDictionary() {
+    const response = await fetch('/dictionary');
+    const data = await response.json();
+    const box = document.getElementById('dictionary');
+    box.innerHTML = '';
+
+    data.items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'dict-item';
+        div.innerHTML = `
+            <span class="dict-glyph">${item.glyph}</span>
+            <span class="dict-letter">${item.letter}</span>
+        `;
+        div.title = item.name;
+        box.appendChild(div);
+    });
+}
+
+
+// ============ ВИКТОРИНА ============
+let quizQuestions = [];
+let currentQuiz = 0;
+
+async function loadQuiz() {
+    const response = await fetch('/quiz');
+    const data = await response.json();
+    quizQuestions = data.questions;
+    currentQuiz = 0;
+    showQuestion();
+}
+
+function showQuestion() {
+    const box = document.getElementById('quizBox');
+
+    if (currentQuiz >= quizQuestions.length) {
+        box.innerHTML = `
+            <div class="quiz-done">
+                🎉 Викторина пройдена! Ты ответил на все ${quizQuestions.length} вопросов.
+                <br><br>
+                <button onclick="loadQuiz()">Пройти заново</button>
+            </div>
+        `;
+        return;
+    }
+
+    const q = quizQuestions[currentQuiz];
+    let html = `
+        <div class="quiz-question">
+            <div class="quiz-counter">Вопрос ${currentQuiz + 1} из ${quizQuestions.length}</div>
+            <div class="quiz-text">${q.question}</div>
+            <div class="quiz-options">
+    `;
+
+    q.options.forEach((opt, i) => {
+        html += `<button class="quiz-option" onclick="answerQuiz(${i})">${opt}</button>`;
+    });
+
+    html += `</div><div class="quiz-feedback" id="quizFeedback"></div></div>`;
+    box.innerHTML = html;
+}
+
+async function answerQuiz(answer) {
+    const response = await fetch('/quiz/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ index: currentQuiz, answer: answer })
+    });
+
+    const data = await response.json();
+    const fb = document.getElementById('quizFeedback');
+
+    if (data.correct) {
+        fb.innerHTML = '✅ Правильно!';
+        fb.className = 'quiz-feedback correct';
+    } else {
+        const right = quizQuestions[currentQuiz].options[data.right];
+        fb.innerHTML = `❌ Неверно. Правильный ответ: <strong>${right}</strong>`;
+        fb.className = 'quiz-feedback wrong';
+    }
+
+    // Блокируем кнопки
+    document.querySelectorAll('.quiz-option').forEach(b => b.disabled = true);
+
+    setTimeout(() => {
+        currentQuiz++;
+        showQuestion();
+    }, 1800);
+}
+
+
+// ============ СТАРТ ============
+loadDictionary();
+loadQuiz();
+</script>
+
+</body>
+</html>
